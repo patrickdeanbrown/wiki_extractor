@@ -14,6 +14,7 @@ from . import formatting as _formatting
 from .client import WikiClient
 from .tts_normalizer import normalize_for_tts as tts_normalize_for_tts
 from .tts_openai import TTSClientError, TTSOpenAIClient
+from .config import load_config # New import
 
 # Re-export frequently used formatting helpers for backward compatibility.
 # Import the module and assign names so linters don't report unused imports.
@@ -34,14 +35,17 @@ def _handle_search(search_term: str, args) -> Optional[str]:
     client = WikiClient()
 
     try:
-        results = client.search_articles(search_term, limit=10, timeout=args.timeout)
-    except requests.exceptions.RequestException as e:
+        # Updated limit
+        results = client.search_articles(
+            search_term, limit=args.search_limit, timeout=args.timeout
+        )
+    except requests.exceptions.RequestException as e: # type: ignore[name-defined]
         console.print(f"[red]Search failed: {e}[/]")
         return None
 
     if not results:
-        console.print(f"[yellow]No results found for '{search_term}'[/]")
-        console.print("[cyan]Try different search terms or check spelling.[/]")
+        console.print(f"[yellow]No results found for '{search_term}'")
+        console.print("[cyan]Try different search terms or check spelling.")
         return None
 
     if len(results) == 1:
@@ -170,10 +174,11 @@ def extract_wikipedia_text(
     lead_only: bool = False,
     session: Optional[object] = None,
     raise_on_error: bool = False,
+    retries: int = 3,
 ) -> Tuple[Optional[str], Optional[str]]:
     final_page_title: Optional[str] = None
 
-    client = WikiClient(session)
+    client = WikiClient(session, retries=retries)
 
     title = _parse_title(url)
 
@@ -202,12 +207,13 @@ def extract_wikipedia_text(
 @app.command()
 def main(
     article: str = typer.Argument(..., help="Wikipedia article URL or search term"),
-    output_dir: str = typer.Option(
-        os.path.join(os.getcwd(), "output"),
+    output_dir: Optional[str] = typer.Option(
+        None,
         "-o",
         "--output",
         "--output-dir",
         help="Directory to save output",
+        envvar="WIKIBEE_OUTPUT_DIR",
     ),
     filename: Optional[str] = typer.Option(
         None,
@@ -215,26 +221,27 @@ def main(
         "--filename",
         help="Base filename to use (otherwise derived from title)",
     ),
-    no_save: bool = typer.Option(
-        False,
+    no_save: Optional[bool] = typer.Option(
+        None,
         "-n",
         "--no-save",
         help="Do not save to file; print to stdout",
     ),
-    timeout: int = typer.Option(
-        15,
+    timeout: Optional[int] = typer.Option(
+        None,
         "-t",
         "--timeout",
         help="HTTP timeout seconds",
+        envvar="WIKIBEE_TIMEOUT",
     ),
-    lead_only: bool = typer.Option(
-        False,
+    lead_only: Optional[bool] = typer.Option(
+        None,
         "-l",
         "--lead-only",
         help="Fetch only the lead (intro) section",
     ),
-    tts: bool = typer.Option(
-        False,
+    tts: Optional[bool] = typer.Option(
+        None,
         "--tts",
         "--tts-file",
         help="Also produce a TTS-friendly .txt alongside the .md",
@@ -244,64 +251,118 @@ def main(
         "--heading-prefix",
         help="Prefix for headings in TTS file, e.g. 'Section:'",
     ),
-    verbose: bool = typer.Option(
-        False,
+    verbose: Optional[bool] = typer.Option(
+        None,
         "-v",
         "--verbose",
         help="Verbose logging",
     ),
-    audio: bool = typer.Option(
-        False,
+    audio: Optional[bool] = typer.Option(
+        None,
         "--audio",
         "--tts-audio",
         help="Also produce an audio file via the local Kokoro/OpenAI-compatible TTS",
     ),
-    tts_server: str = typer.Option(
-        "http://localhost:8880/v1",
+    tts_server: Optional[str] = typer.Option(
+        None,
         "--tts-server",
         help="Base URL of the local TTS server (OpenAI-compatible)",
+        envvar="WIKIBEE_TTS_SERVER",
     ),
-    tts_voice: str = typer.Option(
-        "af_sky+af_bella",
+    tts_voice: Optional[str] = typer.Option(
+        None,
         "--tts-voice",
         help="Voice identifier for the TTS engine",
+        envvar="WIKIBEE_TTS_VOICE",
     ),
-    tts_format: str = typer.Option(
-        "mp3",
+    tts_format: Optional[str] = typer.Option(
+        None,
         "--tts-format",
         help="Audio output format",
     ),
-    yolo: bool = typer.Option(
-        False,
+    yolo: Optional[bool] = typer.Option(
+        None,
         "-y",
         "--yolo",
         help="Auto-select first search result without prompting",
     ),
-    tts_normalize: bool = typer.Option(
-        False,
+    tts_normalize: Optional[bool] = typer.Option(
+        None,
         "--tts-normalize",
         help=(
             "Apply text normalization for better TTS pronunciation "
             "(e.g., 'Richard III' → 'Richard the third')"
         ),
     ),
+    search_limit: Optional[int] = typer.Option(
+        None,
+        "--search-limit",
+        help="Control how many search results to show",
+    ),
+    retries: Optional[int] = typer.Option(
+        None,
+        "--retries",
+        help="Number of retry attempts for failed requests",
+    ),
 ):
+    # Load configuration from file
+    config = load_config()
+
+    # Resolve final values based on precedence:
+    # CLI > Env Var (Typer handles) > Config File > Hardcoded Default
+    final_output_dir = output_dir or config.get(
+        "general", "output_dir", os.path.join(os.getcwd(), "output")
+    )
+    final_filename = filename
+    final_no_save = (
+        no_save if no_save is not None else config.get("general", "no_save", False)
+    )
+    final_timeout = timeout or config.get("general", "timeout", 15)
+    final_lead_only = (
+        lead_only
+        if lead_only is not None
+        else config.get("general", "lead_only", False)
+    )
+    final_tts = tts if tts is not None else config.get("general", "tts", False)
+    final_heading_prefix = heading_prefix or config.get(
+        "general", "heading_prefix", None
+    )
+    final_verbose = (
+        verbose if verbose is not None else config.get("general", "verbose", False)
+    )
+    final_audio = audio if audio is not None else config.get("general", "audio", False)
+    final_tts_server = tts_server or config.get("tts", "server_url", "http://localhost:8880/v1")
+    final_tts_voice = tts_voice or config.get("tts", "default_voice", "af_sky+af_bella")
+    final_tts_format = tts_format or config.get("tts", "format", "mp3")
+    final_yolo = (
+        yolo if yolo is not None else config.get("general", "auto_select", False)
+    )
+    final_tts_normalize = (
+        tts_normalize
+        if tts_normalize is not None
+        else config.get("general", "tts_normalize", False)
+    )
+    final_search_limit = search_limit or config.get("search", "search_limit", 10)
+    final_retries = retries or config.get("general", "retries", 3)
+
     args = SimpleNamespace(
         article=article,
-        output_dir=output_dir,
-        filename=filename,
-        no_save=no_save,
-        timeout=timeout,
-        lead_only=lead_only,
-        tts_file=tts,
-        heading_prefix=heading_prefix,
-        verbose=verbose,
-        tts_audio=audio,
-        tts_server=tts_server,
-        tts_voice=tts_voice,
-        tts_format=tts_format,
-        yolo=yolo,
-        tts_normalize=tts_normalize,
+        output_dir=final_output_dir,
+        filename=final_filename,
+        no_save=final_no_save,
+        timeout=final_timeout,
+        lead_only=final_lead_only,
+        tts_file=final_tts,
+        heading_prefix=final_heading_prefix,
+        verbose=final_verbose,
+        tts_audio=final_audio,
+        tts_server=final_tts_server,
+        tts_voice=final_tts_voice,
+        tts_format=final_tts_format,
+        yolo=final_yolo,
+        tts_normalize=final_tts_normalize,
+        search_limit=final_search_limit,
+        retries=final_retries,
     )
 
     if args.verbose:
@@ -326,6 +387,7 @@ def main(
         convert_numbers_for_tts=False,
         timeout=args.timeout,
         lead_only=args.lead_only,
+        retries=args.retries, # Added retries
     )
 
     if result_text is None:

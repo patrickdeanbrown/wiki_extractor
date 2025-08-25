@@ -270,49 +270,69 @@ fi
 
 ## Environment Variables
 
-### WIKIBEE_OUTPUT_DIR
-Default output directory.
+wikibee supports setting default values for many options via environment variables. These are automatically picked up by the CLI.
 
+**Precedence**: Command-line arguments always override environment variables.
+
+| Option           | Environment Variable      |
+| :--------------- | :------------------------ |
+| `--output-dir`   | `WIKIBEE_OUTPUT_DIR`      |
+| `--timeout`      | `WIKIBEE_TIMEOUT`         |
+| `--tts-server`   | `WIKIBEE_TTS_SERVER`      |
+| `--tts-voice`    | `WIKIBEE_TTS_VOICE`       |
+| `--no-save`      | `WIKIBEE_NO_SAVE`         |
+| `--verbose`      | `WIKIBEE_VERBOSE`         |
+| `--audio`        | `WIKIBEE_AUDIO`           |
+| `--yolo`         | `WIKIBEE_YOLO`            |
+| `--tts-normalize`| `WIKIBEE_TTS_NORMALIZE`   |
+| `--search-limit` | `WIKIBEE_SEARCH_LIMIT`    |
+| `--retries`      | `WIKIBEE_RETRIES`         |
+
+**Example**: 
 ```bash
-export WIKIBEE_OUTPUT_DIR="/home/user/wikipedia"
-wikibee "Topic"  # Saves to /home/user/wikipedia/
-```
-
-### WIKIBEE_TTS_SERVER
-TTS server URL for audio generation.
-
-```bash
-export WIKIBEE_TTS_SERVER="http://localhost:8880"
-wikibee "Topic" --audio
-```
-
-### WIKIBEE_TIMEOUT
-Default timeout in seconds.
-
-```bash
+export WIKIBEE_OUTPUT_DIR="/home/user/wikipedia_articles"
 export WIKIBEE_TIMEOUT=30
-wikibee "Topic"  # Uses 30-second timeout
+wikibee "Topic"  # Uses these defaults
 ```
 
 ## Configuration File
 
-wikibee looks for configuration in `~/.config/wikibee/config.toml`:
+wikibee supports loading default configuration from a `config.toml` file. This file is located in your system's standard application configuration directory.
 
+**Location**:
+*   **Linux**: `~/.config/wikibee/config.toml`
+*   **macOS**: `~/Library/Application Support/wikibee/config.toml`
+*   **Windows**: `C:\Users\<User>\AppData\Roaming\wikibee\config.toml`
+
+**Precedence**: Command-line arguments override environment variables, which in turn override values from the configuration file.
+
+**Example `config.toml` structure**:
 ```toml
+# ~/.config/wikibee/config.toml
+
 [general]
-output_dir = "/home/user/wikipedia"
-default_timeout = 30
-verbose = false
+output_dir = "/home/user/wikibee_output"
+timeout = 20
+verbose = true
+no_save = false
+lead_only = false
+tts = false
+audio = false
+yolo = false
+tts_normalize = false
+retries = 5
 
 [tts]
-server_url = "http://localhost:8880"
-default_voice = "af_sky+af_bella"
-heading_prefix = "Section:"
+server_url = "http://custom-tts-server:8000/v1"
+default_voice = "en_us_male_1"
+format = "mp3" # Default is mp3, can be ogg, wav, etc.
 
-[search]  
-auto_select = false
-search_limit = 10
+[search]
+search_limit = 15
+auto_select = false # Same as yolo
 ```
+
+**Note**: The `tomli` library is used to parse this configuration file.
 
 ## Advanced Examples
 

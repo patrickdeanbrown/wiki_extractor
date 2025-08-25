@@ -8,10 +8,10 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-def _make_session() -> requests.Session:
+def _make_session(retry_count: int = 3) -> requests.Session:
     s = requests.Session()
     retries = Retry(
-        total=3,
+        total=retry_count,
         backoff_factor=0.5,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=frozenset({"GET", "POST"}),
@@ -28,8 +28,8 @@ def _make_session() -> requests.Session:
 class WikiClient:
     """Encapsulate HTTP session and MediaWiki API interaction."""
 
-    def __init__(self, session: Optional[requests.Session] = None):
-        self._session = session or _make_session()
+    def __init__(self, session: Optional[requests.Session] = None, retries: int = 3):
+        self._session = session or _make_session(retries)
 
     @property
     def session(self) -> requests.Session:
