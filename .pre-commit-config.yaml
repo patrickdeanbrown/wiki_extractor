@@ -17,3 +17,16 @@ repos:
     rev: v0.4.9
     hooks:
       - id: ruff
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        name: "mypy (package)"
+        pass_filenames: false
+        args:
+          - "--config-file=pyproject.toml"
+          - "wikibee"
+        additional_dependencies:
+          - types-requests
+          - types-urllib3
+          - typer>=0.12

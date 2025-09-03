@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Any, Iterable, Match, Optional
 from urllib.parse import unquote
 
 try:
     import inflect as _inflect
 
-    _INFLECT_ENGINE = _inflect.engine()
+    _INFLECT_ENGINE: Any = _inflect.engine()
     INFLECT_AVAILABLE = True
 except Exception:
     _INFLECT_ENGINE = None
@@ -67,7 +67,11 @@ def normalize_for_tts(text: str, convert_numbers: bool = False) -> str:
             import inflect
 
             p = inflect.engine()
-            text = re.sub(r"\b(\d+)\b", lambda m: p.number_to_words(m.group(1)), text)
+
+            def _repl(m: Match[str]) -> str:
+                return str(p.number_to_words(m.group(1)))
+
+            text = re.sub(r"\b(\d+)\b", _repl, text)
         except Exception:
             pass
 
@@ -114,7 +118,9 @@ def write_text_file(path: str, base_dir: str, content: str) -> None:
         f.write(content)
 
 
-def write_binary_file(path: str, base_dir: str, content_iterable) -> None:
+def write_binary_file(
+    path: str, base_dir: str, content_iterable: Iterable[bytes]
+) -> None:
     """Safely write binary content to a path inside base_dir.
 
     `content_iterable` should yield bytes-like chunks (an iterable or generator).

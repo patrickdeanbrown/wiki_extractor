@@ -13,7 +13,7 @@ from num2words import num2words
 class TTSNormalizer:
     """Text normalizer for improving TTS pronunciation of Wikipedia content."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize normalizer with pattern definitions."""
         # Phase 1: High-impact patterns (addresses ~80% of issues)
         self.phase1_patterns = [
@@ -94,7 +94,9 @@ class TTSNormalizer:
             Napoleon III → Napoleon the third
         """
 
-        def replace_royal(match):
+        from typing import Match
+
+        def replace_royal(match: Match[str]) -> str:
             name = match.group(1)
             roman = match.group(2)
 
@@ -106,7 +108,7 @@ class TTSNormalizer:
                 num = self._roman_to_int(roman)
                 # Only handle reasonable royal name ranges (I-L, 1-50)
                 if num <= 50:
-                    ordinal = num2words(num, to="ordinal")
+                    ordinal = str(num2words(num, to="ordinal"))
                     return f"{name} the {ordinal}"
                 else:
                     return match.group(0)
@@ -127,12 +129,14 @@ class TTSNormalizer:
             2nd World War → second World War
         """
 
-        def replace_ordinal(match):
+        from typing import Match
+
+        def replace_ordinal(match: Match[str]) -> str:
             num_str = match.group(1)
 
             try:
                 num = int(num_str)
-                ordinal = num2words(num, to="ordinal")
+                ordinal = str(num2words(num, to="ordinal"))
                 return ordinal
             except (ValueError, TypeError):
                 return match.group(0)  # Return original if conversion fails
@@ -176,7 +180,9 @@ class TTSNormalizer:
             2000s → the two thousands
         """
 
-        def replace_decade(match):
+        from typing import Match
+
+        def replace_decade(match: Match[str]) -> str:
             year_str = match.group(1)
 
             try:
@@ -192,11 +198,11 @@ class TTSNormalizer:
                             return "two thousands"
                         else:
                             # 1800s → eighteen hundreds, 1900s → nineteen hundreds
-                            century_word = num2words(century)
+                            century_word = str(num2words(century))
                             return f"{century_word} hundreds"
                     else:
                         # 1980s → nineteen eighties
-                        century_word = num2words(century)
+                        century_word = str(num2words(century))
                         # Convert decade digit to proper word with -ies ending
                         decade_names = {
                             1: "tens",
@@ -210,12 +216,12 @@ class TTSNormalizer:
                             9: "nineties",
                         }
                         decade_word = decade_names.get(
-                            decade, f"{num2words(decade * 10)}s"
+                            decade, f"{str(num2words(decade * 10))}s"
                         )
                         return f"{century_word} {decade_word}"
                 else:
                     # Fallback for years < 1000
-                    return f"{num2words(year)}s"
+                    return f"{str(num2words(year))}s"
             except (ValueError, TypeError):
                 return match.group(0)
 

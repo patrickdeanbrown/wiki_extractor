@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional, cast
 from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from ._types import ExtractsResponse, SearchResult
 
 
 def _make_session() -> requests.Session:
@@ -35,11 +37,13 @@ class WikiClient:
     def session(self) -> requests.Session:
         return self._session
 
-    def fetch_page(self, url: str, title: str, lead: bool, timeout: int) -> dict:
+    def fetch_page(
+        self, url: str, title: str, lead: bool, timeout: int
+    ) -> ExtractsResponse:
         parsed = urlparse(url)
         netloc = parsed.netloc or "en.wikipedia.org"
         api_url = f"{parsed.scheme}://{netloc}/w/api.php"
-        params = {
+        params: dict[str, str | int] = {
             "action": "query",
             "prop": "extracts|pageprops",
             "format": "json",
@@ -52,14 +56,14 @@ class WikiClient:
 
         resp = self._session.get(api_url, params=params, timeout=timeout)
         resp.raise_for_status()
-        return resp.json()
+        return cast(ExtractsResponse, resp.json())
 
     def search_articles(
         self, query: str, limit: int = 10, timeout: int = 15
-    ) -> list[dict]:
+    ) -> List[SearchResult]:
         """Search for Wikipedia articles using OpenSearch API with fuzzy matching."""
         api_url = "https://en.wikipedia.org/w/api.php"
-        params = {
+        params: dict[str, str | int] = {
             "action": "opensearch",
             "search": query,
             "limit": limit,
@@ -81,7 +85,7 @@ class WikiClient:
         urls = data[3]
 
         # Combine into structured results
-        results = []
+        results: List[SearchResult] = []
         for i, title in enumerate(titles):
             results.append(
                 {

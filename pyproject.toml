@@ -8,10 +8,8 @@ dynamic = ["version"]
 description = "Extract Wikipedia articles and convert them to TTS-friendly text and audio"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [
-    {name = "Patrick Brown", email = "patrickdeanbrown@icloud.com"}
-]
+license = { text = "MIT" }
+authors = [{ name = "Patrick Brown", email = "patrickdeanbrown@icloud.com" }]
 keywords = ["wikipedia", "tts", "text-to-speech", "extraction", "audio"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -36,9 +34,11 @@ dependencies = [
     "inflect>=6.0",
     "num2words>=0.5.0",
     "openai>=1.0.0",
+    "platformdirs>=4.0",
     "requests>=2.0",
-    "typer>=0.12",
     "rich>=13.0",
+    "tomli; python_version < \"3.11\"",
+    "typer>=0.12",
 ]
 
 [project.urls]
@@ -52,6 +52,7 @@ dev = [
     "requests-mock>=1.11.0",
     "ruff>=0.0.0",
     "pre-commit>=3.5.0",
+    "mypy>=1.10.0",
 ]
 
 [project.scripts]
@@ -67,12 +68,49 @@ select = ["E", "F", "W", "C"]
 source = "vcs"
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/wikibee",
-    "/tests",
-]
+include = ["/wikibee", "/tests"]
 
 [tool.hatch.build.targets.wheel]
-include = [
-    "/wikibee",
-]
+include = ["/wikibee"]
+
+# ----------------------
+# Static typing (mypy)
+# ----------------------
+[tool.mypy]
+python_version = "3.12"
+pretty = true
+show_error_codes = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+ignore_missing_imports = true  # third‑party libs without types
+exclude = ["^tests/", "^docs/"]
+
+# Module-specific overrides (tighten later per module)
+[[tool.mypy.overrides]]
+module = ["wikibee.*"]
+disallow_any_generics = true
+
+# Ratchet strictness: these modules must be fully annotated and avoid Any returns
+[[tool.mypy.overrides]]
+module = ["wikibee.client", "wikibee.formatting"]
+disallow_untyped_defs = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["wikibee._types", "wikibee.tts_openai", "wikibee.tts_normalizer"]
+disallow_untyped_defs = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["wikibee.__init__", "wikibee.__main__"]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["wikibee.cli"]
+disallow_untyped_defs = true
+warn_return_any = true

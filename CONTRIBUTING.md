@@ -49,6 +49,32 @@ We welcome contributions to wikibee! This guide will help you get started with c
 - Write tests for new functionality
 - Keep line length under 88 characters
 
+### Type Safety & Mypy (Required)
+
+We enforce static typing via mypy in pre-commit and CI. New and changed code must be fully typed.
+
+- Run locally:
+  ```bash
+  mypy wikibee             # full package
+  pre-commit run -a        # runs ruff/black/isort/mypy
+  ```
+- Where types are unavailable for 3rd‑party libs, prefer installing stubs:
+  ```bash
+  pip install types-requests types-urllib3
+  ```
+- Ratchet policy: We maintain a per‑module strictness list in `pyproject.toml` under `[tool.mypy.overrides]`. Modules listed there must:
+  - have no untyped defs (`disallow_untyped_defs = true`)
+  - not return `Any` (`warn_return_any = true`)
+  - comply with the global baseline (no implicit optional, etc.)
+- Adding modules to strict list: If you touch a non‑strict module, consider tightening it and add to overrides.
+- Temporary ignores: Use targeted codes and a comment with rationale, e.g. `# type: ignore[arg-type]  # awaiting upstream stubs`. Follow up with an issue link when possible.
+
+Common typing fixes we use:
+- `requests`: cast JSON: `data = cast(MyTypedDict, resp.json())`.
+- `re.sub` callbacks: annotate `def repl(m: Match[str]) -> str`.
+- `num2words` returns: wrap with `str()` to avoid `Any`.
+- Typer/Click overrides: import `click` and annotate `resolve_command(self, ctx: click.Context, args: list[str]) -> tuple[str|None, click.Command|None, list[str]]`.
+
 ### Testing
 
 Run tests before submitting:

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 # Allow tests to monkeypatch `OpenAI` at module level without requiring the
 # real `openai` package to be installed at import time. If the import fails
 # we'll set OpenAI to None and import inside the constructor.
+OpenAI: Any = None
 try:
-    from openai import OpenAI  # type: ignore
+    from openai import OpenAI as _OpenAI
+
+    OpenAI = _OpenAI
 except Exception:  # pragma: no cover - import-time fallback
     OpenAI = None
 
@@ -26,7 +29,7 @@ class TTSOpenAIClient:
         # `OpenAI` to simulate failures that occur during client creation.
         self._base_url = base_url
         self._api_key = api_key
-        self.client = None
+        self.client: Any = None
 
     def synthesize_to_file(
         self,
@@ -50,13 +53,14 @@ class TTSOpenAIClient:
             if self.client is None:
                 if OpenAI is None:
                     try:
-                        from openai import OpenAI as _OpenAI  # type: ignore
+                        from openai import OpenAI as _OpenAI
+
+                        OpenAI = _OpenAI
                     except Exception as e:  # pragma: no cover - tests monkeypatch
                         raise TTSClientError(
-                            "OpenAI client is not available; install 'openai' or"
-                            " monkeypatch OpenAI in tests"
+                            "OpenAI client is not available; install 'openai' or "
+                            "monkeypatch OpenAI in tests"
                         ) from e
-                    OpenAI = _OpenAI
                 try:
                     self.client = OpenAI(base_url=self._base_url, api_key=self._api_key)
                 except Exception as e:
